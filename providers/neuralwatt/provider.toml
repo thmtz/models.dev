@@ -1,0 +1,5 @@
+name = "Neuralwatt"
+npm = "@ai-sdk/openai-compatible"
+api = "https://api.neuralwatt.com/v1"
+env = ["NEURALWATT_API_KEY"]
+doc = "https://portal.neuralwatt.com/docs"

@@ -1,0 +1,22 @@
+name = "Kimi K2.5 Fast"
+family = "kimi"
+release_date = "2026-01-20"
+last_updated = "2026-01-20"
+attachment = true
+reasoning = false
+temperature = true
+tool_call = true
+structured_output = true
+open_weights = true
+
+[cost]
+input = 0.52
+output = 2.59
+
+[limit]
+context = 262_144
+output = 8_192
+
+[modalities]
+input = ["text", "image"]
+output = ["text"]
