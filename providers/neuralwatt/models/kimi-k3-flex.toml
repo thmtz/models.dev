@@ -1,0 +1,27 @@
+# Flex tier: async/queued processing at a 0.5 pricing multiplier vs kimi-k3.
+# Requires stream = true (non-streaming requests fall through to standard tier).
+base_model = "moonshotai/kimi-k3"
+name = "Kimi K3 Flex"
+
+[[reasoning_options]]
+type = "toggle" # API: {"chat_template_kwargs": {"enable_thinking": false}}
+
+[[reasoning_options]]
+type = "effort"
+values = ["low", "high", "max"]
+
+[interleaved]
+field = "reasoning_content"
+
+[cost]
+input = 1.5
+output = 7.5
+cache_read = 0.15
+
+[limit]
+context = 1_048_560
+output = 1_048_560
+
+[modalities]
+input = ["text", "image"]
+output = ["text"]

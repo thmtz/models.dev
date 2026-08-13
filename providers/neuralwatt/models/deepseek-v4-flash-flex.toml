@@ -1,0 +1,18 @@
+# Flex tier: async/queued processing at a 0.5 pricing multiplier vs
+# deepseek-v4-flash. Requires stream = true (non-streaming requests fall
+# through to the standard tier).
+base_model = "deepseek/deepseek-v4-flash"
+name = "DeepSeek V4 Flash Flex"
+
+[[reasoning_options]]
+type = "effort"
+values = ["high", "max"]
+
+[cost]
+input = 0.07
+output = 0.14
+cache_read = 0.014
+
+[limit]
+context = 1_048_560
+output = 65_536
