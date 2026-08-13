@@ -3,15 +3,15 @@
 base_model = "moonshotai/kimi-k3"
 name = "Kimi K3 Flex"
 
+[interleaved]
+field = "reasoning_content"
+
 [[reasoning_options]]
-type = "toggle" # API: {"chat_template_kwargs": {"enable_thinking": false}}
+type = "toggle"
 
 [[reasoning_options]]
 type = "effort"
 values = ["low", "high", "max"]
-
-[interleaved]
-field = "reasoning_content"
 
 [cost]
 input = 1.95
@@ -24,4 +24,3 @@ output = 1_048_560
 
 [modalities]
 input = ["text", "image"]
-output = ["text"]

@@ -5,15 +5,20 @@ release_date = "2026-04-01"
 last_updated = "2026-04-01"
 attachment = true
 reasoning = true
-reasoning_options = [{ type = "toggle" }]
 temperature = true
 tool_call = true
 open_weights = true
 
+[interleaved]
+field = "reasoning_content"
+
+[[reasoning_options]]
+type = "toggle"
+
 [cost]
 input = 0.29
 output = 1.15
-cache_read = 0.0725
+cache_read = 0.029
 
 [limit]
 context = 131_056
@@ -22,6 +27,3 @@ output = 131_056
 [modalities]
 input = ["text", "image"]
 output = ["text"]
-
-[interleaved]
-field = "reasoning_content"
