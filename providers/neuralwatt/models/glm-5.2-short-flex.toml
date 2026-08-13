@@ -1,3 +1,6 @@
+# Reasoning is controlled by reasoning_effort alone; "none" disables thinking.
+# The API accepts the full seven-level scale but aliases it down to three real
+# levels: xhigh->max, medium->high, low->high, minimal->none.
 name = "GLM 5.2 Short Flex"
 description = "Flagship GLM model for hybrid reasoning, coding, and agentic engineering"
 family = "glm"
@@ -10,14 +13,8 @@ tool_call = true
 open_weights = true
 
 [[reasoning_options]]
-type = "toggle"
-
-[[reasoning_options]]
 type = "effort"
-values = ["none", "minimal", "low", "medium", "high", "xhigh", "max"]
-
-[[reasoning_options]]
-type = "budget_tokens"
+values = ["none", "high", "max"]
 
 [cost]
 input = 0.9425

@@ -120,6 +120,7 @@ export const neuralwatt = {
     ];
   },
   async fetchModels() {
+    staleFlexCosts.length = 0;
     return fetchNeuralwattModels();
   },
   parseModels(raw) {
@@ -222,5 +223,10 @@ export function buildNeuralwattModel(
   };
   const name = metadata?.display_name ?? undefined;
   if (name !== undefined) values.name = name;
+  // Don't inherit multimodal input from the base model when this host doesn't
+  // serve it (Neuralwatt entries are text, or text+image at most).
+  if (metadata?.capabilities?.vision === false) {
+    values.modalities = { input: ["text"] };
+  }
   return factorBaseModel(baseModel, values, limit);
 }
