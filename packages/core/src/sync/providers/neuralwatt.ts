@@ -68,11 +68,14 @@ const FLEX_DRIFT_TOLERANCE = 0.01;
 
 const staleFlexCosts: string[] = [];
 
-function checkFlexDrift(id: string, authored: ExistingModel["cost"], standard: { input: number; output: number } | undefined) {
+function checkFlexDrift(id: string, authored: ExistingModel["cost"], standard: { input: number; output: number; cache_read: number | undefined } | undefined) {
   if (authored === undefined || standard === undefined) return;
-  const drifted = (["input", "output"] as const).some((side) => {
+  const drifted = (["input", "output", "cache_read"] as const).some((side) => {
+    const base = standard[side];
+    if (side === "cache_read" && (base === undefined || authored.cache_read === undefined)) return false;
+    if (base === undefined) return false;
     const have = authored[side];
-    const expected = standard[side] * EXPECTED_FLEX_MULTIPLIER;
+    const expected = base * EXPECTED_FLEX_MULTIPLIER;
     return typeof have !== "number" || Math.abs(have - expected) > expected * FLEX_DRIFT_TOLERANCE;
   });
   if (drifted && !staleFlexCosts.includes(id)) staleFlexCosts.push(id);
@@ -157,12 +160,16 @@ export function buildNeuralwattModel(
   const pricing = metadata?.pricing;
 
   const contextLength = metadata?.limits?.max_context_length ?? model.max_model_len ?? undefined;
+  // Never fabricate an output cap: when the API reports null, keep the
+  // authored value (existing files) or omit it so the base model resolves it
+  // (new files). 6 of 19 live models report null today.
+  const outputTokens = metadata?.limits?.max_output_tokens ?? existing?.limit?.output ?? undefined;
   const limit = contextLength === undefined
     ? existing?.limit
     : {
       ...existing?.limit,
       context: contextLength,
-      output: metadata?.limits?.max_output_tokens ?? existing?.limit?.output ?? contextLength,
+      ...(outputTokens === undefined ? {} : { output: outputTokens }),
     };
 
   let syncedCost: { input: number; output: number; cache_read: number | undefined } | undefined;

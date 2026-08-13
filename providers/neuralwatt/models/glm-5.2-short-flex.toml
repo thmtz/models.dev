@@ -22,7 +22,7 @@ type = "budget_tokens"
 [cost]
 input = 0.9425
 output = 2.925
-cache_read = 0.235625
+cache_read = 0.09425
 
 [limit]
 context = 199_984
