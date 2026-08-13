@@ -1,4 +1,4 @@
-# Flex tier: async/queued processing at a 0.5 pricing multiplier vs kimi-k3.
+# Flex tier: async/queued processing at a 0.65 pricing multiplier (35% off) vs kimi-k3.
 # Requires stream = true (non-streaming requests fall through to standard tier).
 base_model = "moonshotai/kimi-k3"
 name = "Kimi K3 Flex"
@@ -14,9 +14,9 @@ values = ["low", "high", "max"]
 field = "reasoning_content"
 
 [cost]
-input = 1.5
-output = 7.5
-cache_read = 0.15
+input = 1.95
+output = 9.75
+cache_read = 0.195
 
 [limit]
 context = 1_048_560
