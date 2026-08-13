@@ -52,8 +52,8 @@ export const NeuralwattResponse = z.object({
 
 export type NeuralwattModel = z.infer<typeof NeuralwattModel>;
 
-// Flex-tier aliases are billed at a runtime-configured discount that only
-// applies to requests that actually take the flex path (streaming required;
+// Flex-tier aliases are billed at a discount that only applies to requests
+// that actually take the flex path (streaming required;
 // non-streaming falls through to the standard tier and standard pricing). The
 // API therefore advertises the standard price on flex aliases. The discounted
 // price in these TOMLs is hand-authored and preserved by the sync.
@@ -61,11 +61,11 @@ function isFlex(id: string) {
   return id.endsWith("-flex");
 }
 
-// Tripwire only — NEVER used to write a price. The live multiplier is runtime
-// config on the Neuralwatt side (it has changed before: 0.5 → 0.65); this
-// constant exists solely to detect when authored flex costs stop matching
-// multiplier × standard and surface a notice for human review. Auto-rewriting
-// from this constant would bake a stale copy of the dial into the pipeline.
+// Tripwire only — NEVER used to write a price. The published flex discount
+// can change (it has before: 0.5 → 0.65); this constant exists solely to
+// detect when authored flex costs stop matching multiplier × standard and
+// surface a notice for human review. Auto-rewriting from this constant would
+// bake a stale copy of the rate into the pipeline.
 const EXPECTED_FLEX_MULTIPLIER = 0.65;
 const FLEX_DRIFT_TOLERANCE = 0.01;
 
