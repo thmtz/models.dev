@@ -77,6 +77,7 @@ import { ofox } from "../src/sync/providers/ofox.js";
 import { pioneer } from "../src/sync/providers/pioneer.js";
 import { google, shouldTrackGoogleModel } from "../src/sync/providers/google.js";
 import { buildTinfoilModel, tinfoil, type TinfoilModel } from "../src/sync/providers/tinfoil.js";
+import { buildNeuralwattModel, neuralwatt, NeuralwattResponse, type NeuralwattModel } from "../src/sync/providers/neuralwatt.js";
 import { resolveVeniceBaseModel } from "../src/sync/providers/venice.js";
 import { buildVercelModel, vercel } from "../src/sync/providers/vercel.js";
 import { buildWandbModel, type WandbModel } from "../src/sync/providers/wandb.js";
@@ -3878,3 +3879,156 @@ function openRouterModel(overrides: Partial<OpenRouterModel> = {}): OpenRouterMo
     ...overrides,
   };
 }
+
+function neuralwattModel(overrides: Partial<NeuralwattModel> = {}): NeuralwattModel {
+  return {
+    id: "kimi-k3",
+    object: "model",
+    max_model_len: 1_048_560,
+    metadata: {
+      display_name: "Kimi K3",
+      huggingface_id: "moonshotai/Kimi-K3",
+      pricing: {
+        input_per_million: 3.0,
+        output_per_million: 15.0,
+        cached_input_per_million: 0.3,
+        pricing_tbd: false,
+      },
+      limits: { max_context_length: 1_048_560, max_output_tokens: null },
+      deprecated: false,
+    },
+    ...overrides,
+  };
+}
+
+const existingNeuralwattFlex: ExistingModel = {
+  base_model: "moonshotai/kimi-k3",
+  name: "Kimi K3 Flex",
+  cost: { input: 1.95, output: 9.75, cache_read: 0.195 },
+  limit: { context: 1_048_560, output: 1_048_560 },
+};
+
+test("syncs Neuralwatt standard pricing and limits from the live catalog", () => {
+  const model = buildNeuralwattModel(neuralwattModel(), {
+    base_model: "moonshotai/kimi-k3",
+    cost: { input: 2.5, output: 12.0, cache_read: 0.25 },
+    limit: { context: 1_000_000, output: 1_000_000 },
+  });
+
+  expect(model).toMatchObject({
+    base_model: "moonshotai/kimi-k3",
+    cost: { input: 3.0, output: 15.0, cache_read: 0.3 },
+    limit: { context: 1_048_560 },
+  });
+});
+
+test("preserves hand-authored Neuralwatt flex costs (API advertises the standard fall-through price)", () => {
+  const model = buildNeuralwattModel(
+    neuralwattModel({ id: "kimi-k3-flex" }),
+    existingNeuralwattFlex,
+  );
+
+  expect(model).toMatchObject({
+    cost: { input: 1.95, output: 9.75, cache_read: 0.195 },
+  });
+});
+
+test("never fabricates a Neuralwatt output limit when the API reports null", () => {
+  const model = buildNeuralwattModel(neuralwattModel(), {
+    base_model: "moonshotai/kimi-k3",
+    cost: { input: 3.0, output: 15.0 },
+  });
+
+  expect(model?.limit?.context).toBe(1_048_560);
+  expect(model?.limit).not.toHaveProperty("output");
+});
+
+test("skips Neuralwatt backend-ID duplicates and deprecated models silently", () => {
+  expect(neuralwatt.sourceID(neuralwattModel({ id: "deepseek-ai/DeepSeek-V4-Flash" }))).toBeUndefined();
+  const deprecated = neuralwattModel();
+  deprecated.metadata = { ...deprecated.metadata, deprecated: true };
+  expect(neuralwatt.sourceID(deprecated)).toBeUndefined();
+  expect(neuralwatt.sourceID(neuralwattModel({ id: "kimi-k3-flex" }))).toBe("kimi-k3-flex");
+});
+
+test("never auto-creates Neuralwatt flex aliases", () => {
+  const translated = neuralwatt.translateModel(neuralwattModel({ id: "kimi-k3-flex" }), {
+    existing: () => undefined,
+    authored: () => undefined,
+  });
+  expect(translated).toBeUndefined();
+});
+
+test("rejects an implausibly small Neuralwatt catalog", () => {
+  expect(() => NeuralwattResponse.parse({
+    object: "list",
+    data: [neuralwattModel()],
+  })).toThrow();
+});
+
+test("throws on a nonpositive Neuralwatt price instead of syncing it", () => {
+  const zeroed = neuralwattModel();
+  zeroed.metadata = {
+    ...zeroed.metadata,
+    pricing: { input_per_million: 0, output_per_million: 15.0, pricing_tbd: false },
+  };
+  expect(() => buildNeuralwattModel(zeroed, { cost: { input: 3.0, output: 15.0 } })).toThrow(/nonpositive/);
+});
+
+test("flags Neuralwatt flex cost drift for review without rewriting it", () => {
+  const stale: ExistingModel = {
+    ...existingNeuralwattFlex,
+    cost: { input: 1.5, output: 7.5, cache_read: 0.15 },
+  };
+  const model = buildNeuralwattModel(neuralwattModel({ id: "kimi-k3-flex" }), stale);
+
+  expect(model).toMatchObject({ cost: { input: 1.5, output: 7.5, cache_read: 0.15 } });
+  const notices = neuralwatt.skippedNotice?.([]) ?? [];
+  expect(notices.join("\n")).toContain("kimi-k3-flex");
+  expect(notices.join("\n")).toContain("tripwire");
+});
+
+test("overrides Neuralwatt capabilities the API contradicts on auto-create", () => {
+  const nonReasoner = neuralwattModel({ id: "kimi-k3-fast" });
+  nonReasoner.metadata = {
+    ...nonReasoner.metadata,
+    capabilities: { tools: true, vision: true, reasoning: false, streaming: true },
+  };
+  const model = buildNeuralwattModel(nonReasoner, undefined);
+  expect(model).toMatchObject({ base_model: "moonshotai/kimi-k3", reasoning: false });
+  expect(model).not.toHaveProperty("reasoning_options");
+});
+
+test("derives effort-only reasoning options from the API on auto-create", () => {
+  const reasoner = neuralwattModel({ id: "kimi-k3-longthink" });
+  reasoner.metadata = {
+    ...reasoner.metadata,
+    capabilities: { tools: true, vision: true, reasoning: true, streaming: true },
+    reasoning: { supported_efforts: ["max", "high", "none"] },
+  };
+  const model = buildNeuralwattModel(reasoner, undefined);
+  expect(model).toMatchObject({
+    reasoning_options: [{ type: "effort", values: ["none", "high", "max"] }],
+    interleaved: { field: "reasoning_content" },
+  });
+});
+
+test("declines Neuralwatt auto-create when a reasoning model states no effort list", () => {
+  const reasoner = neuralwattModel({ id: "kimi-k3-mystery" });
+  reasoner.metadata = {
+    ...reasoner.metadata,
+    capabilities: { tools: true, vision: true, reasoning: true, streaming: true },
+    reasoning: {},
+  };
+  expect(buildNeuralwattModel(reasoner, undefined)).toBeUndefined();
+});
+
+test("flags an existing Neuralwatt model the API marks deprecated", () => {
+  const deprecated = neuralwattModel();
+  deprecated.metadata = { ...deprecated.metadata, deprecated: true };
+  const model = buildNeuralwattModel(deprecated, {
+    base_model: "moonshotai/kimi-k3",
+    cost: { input: 3.0, output: 15.0 },
+  });
+  expect(model).toMatchObject({ status: "deprecated" });
+});
