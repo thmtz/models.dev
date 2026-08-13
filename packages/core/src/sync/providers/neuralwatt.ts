@@ -41,7 +41,10 @@ export const NeuralwattModel = z.object({
 
 export const NeuralwattResponse = z.object({
   object: z.literal("list"),
-  data: z.array(NeuralwattModel),
+  // Fail closed on an implausibly small catalog: the gateway aggregates a
+  // fleet and can return a partial (or empty) list in degraded states, which
+  // must not translate into catalog churn.
+  data: z.array(NeuralwattModel).min(5),
 }).passthrough();
 
 export type NeuralwattModel = z.infer<typeof NeuralwattModel>;
@@ -55,6 +58,26 @@ function isFlex(id: string) {
   return id.endsWith("-flex");
 }
 
+// Tripwire only — NEVER used to write a price. The live multiplier is runtime
+// config on the Neuralwatt side (it has changed before: 0.5 → 0.65); this
+// constant exists solely to detect when authored flex costs stop matching
+// multiplier × standard and surface a notice for human review. Auto-rewriting
+// from this constant would bake a stale copy of the dial into the pipeline.
+const EXPECTED_FLEX_MULTIPLIER = 0.65;
+const FLEX_DRIFT_TOLERANCE = 0.01;
+
+const staleFlexCosts: string[] = [];
+
+function checkFlexDrift(id: string, authored: ExistingModel["cost"], standard: { input: number; output: number } | undefined) {
+  if (authored === undefined || standard === undefined) return;
+  const drifted = (["input", "output"] as const).some((side) => {
+    const have = authored[side];
+    const expected = standard[side] * EXPECTED_FLEX_MULTIPLIER;
+    return typeof have !== "number" || Math.abs(have - expected) > expected * FLEX_DRIFT_TOLERANCE;
+  });
+  if (drifted && !staleFlexCosts.includes(id)) staleFlexCosts.push(id);
+}
+
 export const neuralwatt = {
   id: "neuralwatt",
   name: "Neuralwatt",
@@ -64,14 +87,27 @@ export const neuralwatt = {
   // auto-deleting on an API blip.
   deleteMissing: false,
   sourceID(model) {
+    // Backend model IDs (e.g. `deepseek-ai/DeepSeek-V4-Flash`) duplicate an
+    // alias entry; skip them silently — a missing-model notice would just ask
+    // a human to author a duplicate.
+    if (model.id.includes("/")) return undefined;
+    if (model.metadata?.deprecated === true) return undefined;
     return model.id;
   },
   skippedNotice(ids) {
-    if (ids.length === 0) return [];
-    return [
-      `${ids.length} Neuralwatt models were not created automatically: flex-tier aliases need a hand-authored discounted cost (the API advertises the standard, fall-through price), and other skips lacked a resolvable base model or complete pricing.`,
-      `Skipped remote IDs: ${ids.map((id) => `\`${id}\``).join(", ")}`,
-    ];
+    const notices: string[] = [];
+    if (ids.length > 0) {
+      notices.push(
+        `${ids.length} Neuralwatt models were not created automatically: flex-tier aliases need a hand-authored discounted cost (the API advertises the standard, fall-through price), and other skips lacked a resolvable base model or complete pricing.`,
+        `Skipped remote IDs: ${ids.map((id) => `\`${id}\``).join(", ")}`,
+      );
+    }
+    if (staleFlexCosts.length > 0) {
+      notices.push(
+        `Flex pricing tripwire: ${staleFlexCosts.length} flex TOML(s) no longer match ${EXPECTED_FLEX_MULTIPLIER} × the live standard price — the Neuralwatt flex multiplier may have changed. Needs human review (do not auto-rewrite): ${staleFlexCosts.map((id) => `\`${id}\``).join(", ")}`,
+      );
+    }
+    return notices;
   },
   missingNotice(paths) {
     if (paths.length === 0) return [];
@@ -129,18 +165,28 @@ export function buildNeuralwattModel(
       output: metadata?.limits?.max_output_tokens ?? existing?.limit?.output ?? contextLength,
     };
 
-  const syncedCost = pricing?.pricing_tbd !== true
+  let syncedCost: { input: number; output: number; cache_read: number | undefined } | undefined;
+  if (
+    pricing?.pricing_tbd !== true
     && pricing?.input_per_million !== undefined && pricing?.input_per_million !== null
     && pricing?.output_per_million !== undefined && pricing?.output_per_million !== null
-    ? {
+  ) {
+    // Fail the whole provider sync loudly on an implausible price rather than
+    // letting a gateway bug auto-merge zeroed pricing into every TOML: the
+    // auto-merge classifier does not inspect cost changes.
+    if (pricing.input_per_million <= 0 || pricing.output_per_million <= 0) {
+      throw new Error(`Neuralwatt model ${model.id} reports a nonpositive price (input=${pricing.input_per_million}, output=${pricing.output_per_million})`);
+    }
+    syncedCost = {
       input: pricing.input_per_million,
       output: pricing.output_per_million,
       cache_read: pricing.cached_input_per_million ?? undefined,
-    }
-    : undefined;
+    };
+  }
 
   // Flex aliases keep their hand-authored discounted cost; the API's number is
-  // the standard (fall-through) price.
+  // the standard (fall-through) price. The tripwire flags drift for humans.
+  if (isFlex(model.id)) checkFlexDrift(model.id, existing?.cost, syncedCost);
   const cost = isFlex(model.id)
     ? existing?.cost
     : syncedCost ?? existing?.cost;
