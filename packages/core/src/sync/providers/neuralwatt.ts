@@ -25,6 +25,9 @@ const NeuralwattMetadata = z.object({
     reasoning: z.boolean().nullish(),
     streaming: z.boolean().nullish(),
   }).passthrough().nullish(),
+  reasoning: z.object({
+    supported_efforts: z.array(z.string()).nullish(),
+  }).passthrough().nullish(),
   limits: z.object({
     max_context_length: z.number().int().positive().nullish(),
     max_output_tokens: z.number().int().positive().nullish(),
@@ -205,6 +208,10 @@ export function buildNeuralwattModel(
       ...current,
       ...(cost === undefined ? {} : { cost }),
       ...(limit === undefined ? {} : { limit }),
+      // An existing model the API marks deprecated stays in the catalog but is
+      // flagged, so deprecation propagates without waiting for a human while
+      // deletion still requires one (deleteMissing is off).
+      ...(metadata?.deprecated === true ? { status: "deprecated" as const } : {}),
     } as SyncedFullModel;
     return baseModel === undefined
       ? values
@@ -223,10 +230,31 @@ export function buildNeuralwattModel(
   };
   const name = metadata?.display_name ?? undefined;
   if (name !== undefined) values.name = name;
+  // The base model's capabilities don't bind this host: override anything the
+  // API states explicitly, rather than inheriting a contract we don't serve.
+  if (metadata?.capabilities?.tools !== undefined && metadata.capabilities.tools !== null) {
+    values.tool_call = metadata.capabilities.tools;
+  }
   // Don't inherit multimodal input from the base model when this host doesn't
   // serve it (Neuralwatt entries are text, or text+image at most).
   if (metadata?.capabilities?.vision === false) {
     values.modalities = { input: ["text"] };
+  }
+  if (metadata?.capabilities?.reasoning === false) {
+    values.reasoning = false;
+  } else if (metadata?.capabilities?.reasoning === true) {
+    // A reasoning model needs reasoning_options; derive them from the API's
+    // effort list (effort-only — the host expresses on/off via "none"). If the
+    // API can't state the controls, decline the create and let the skipped
+    // notice route it to a human.
+    const efforts = metadata.reasoning?.supported_efforts ?? undefined;
+    if (efforts === undefined || efforts.length === 0) return undefined;
+    const order = ["none", "minimal", "low", "medium", "high", "xhigh", "max"] as const;
+    values.reasoning_options = [{
+      type: "effort",
+      values: order.filter((level) => efforts.includes(level)),
+    }];
+    values.interleaved = { field: "reasoning_content" };
   }
   return factorBaseModel(baseModel, values, limit);
 }

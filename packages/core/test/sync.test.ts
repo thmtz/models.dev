@@ -3987,3 +3987,48 @@ test("flags Neuralwatt flex cost drift for review without rewriting it", () => {
   expect(notices.join("\n")).toContain("kimi-k3-flex");
   expect(notices.join("\n")).toContain("tripwire");
 });
+
+test("overrides Neuralwatt capabilities the API contradicts on auto-create", () => {
+  const nonReasoner = neuralwattModel({ id: "kimi-k3-fast" });
+  nonReasoner.metadata = {
+    ...nonReasoner.metadata,
+    capabilities: { tools: true, vision: true, reasoning: false, streaming: true },
+  };
+  const model = buildNeuralwattModel(nonReasoner, undefined);
+  expect(model).toMatchObject({ base_model: "moonshotai/kimi-k3", reasoning: false });
+  expect(model).not.toHaveProperty("reasoning_options");
+});
+
+test("derives effort-only reasoning options from the API on auto-create", () => {
+  const reasoner = neuralwattModel({ id: "kimi-k3-longthink" });
+  reasoner.metadata = {
+    ...reasoner.metadata,
+    capabilities: { tools: true, vision: true, reasoning: true, streaming: true },
+    reasoning: { supported_efforts: ["max", "high", "none"] },
+  };
+  const model = buildNeuralwattModel(reasoner, undefined);
+  expect(model).toMatchObject({
+    reasoning_options: [{ type: "effort", values: ["none", "high", "max"] }],
+    interleaved: { field: "reasoning_content" },
+  });
+});
+
+test("declines Neuralwatt auto-create when a reasoning model states no effort list", () => {
+  const reasoner = neuralwattModel({ id: "kimi-k3-mystery" });
+  reasoner.metadata = {
+    ...reasoner.metadata,
+    capabilities: { tools: true, vision: true, reasoning: true, streaming: true },
+    reasoning: {},
+  };
+  expect(buildNeuralwattModel(reasoner, undefined)).toBeUndefined();
+});
+
+test("flags an existing Neuralwatt model the API marks deprecated", () => {
+  const deprecated = neuralwattModel();
+  deprecated.metadata = { ...deprecated.metadata, deprecated: true };
+  const model = buildNeuralwattModel(deprecated, {
+    base_model: "moonshotai/kimi-k3",
+    cost: { input: 3.0, output: 15.0 },
+  });
+  expect(model).toMatchObject({ status: "deprecated" });
+});

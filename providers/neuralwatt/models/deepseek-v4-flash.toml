@@ -1,7 +1,7 @@
 # Reasoning is off by default and controlled by reasoning_effort alone;
 # "none" disables thinking (aliases: xhigh->max, medium->high, low->high,
 # minimal->high).
-base_model = "deepseek/deepseek-v4-flash"
+base_model = "deepseek/deepseek-v4-flash-0731"
 
 [[reasoning_options]]
 type = "effort"
