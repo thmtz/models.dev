@@ -1,10 +1,13 @@
 name = "Neuralwatt"
 env = ["NEURALWATT_API_KEY"]
 npm = "@ai-sdk/openai-compatible"
-# Raw HTTP is POST `/v1/chat/completions`. Reasoning models accept top-level
-# `thinking_token_budget` (no bounds or disable sentinel documented). Native
-# toggles use `chat_template_kwargs.enable_thinking = true|false`; GLM-5.2 also
-# accepts `reasoning_effort`, with the model-specific normalization documented.
+# Raw HTTP is POST `/v1/chat/completions`. The documented top-level
+# `thinking_token_budget` is rejected by the current serving stack ("not yet
+# supported by the V2 model runner"); reasoning budgets are server-injected
+# only, so no budget option is declared. Native toggles use
+# `chat_template_kwargs.enable_thinking = true|false`; effort-capable models
+# accept `reasoning_effort`, with the model-specific normalization documented
+# per model.
 # Flex tier uses either a `-flex` model ID or `service_tier = "flex"` and
 # requires `stream = true`; non-streaming requests fall through to the standard
 # tier. The flex tier is billed at a 0.65 pricing multiplier (35% off standard);

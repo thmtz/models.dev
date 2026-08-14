@@ -1,8 +1,16 @@
+# Reasoning is controlled by reasoning_effort alone; the host's real levels
+# are "max" and "none" ("none" disables thinking, every other accepted effort
+# aliases to "max"). Effort includes "none", so no separate toggle is
+# declared.
+# Host deltas vs the lab model: no structured output (json_mode = false on the
+# live catalog), context 262_128, output capped at 16_384.
 base_model = "google/gemma-4-31b-it"
 name = "Gemma 4 31B"
+structured_output = false
 
 [[reasoning_options]]
-type = "toggle"
+type = "effort"
+values = ["none", "max"]
 
 [cost]
 input = 0.144

@@ -1,3 +1,7 @@
+# Reasoning is controlled by reasoning_effort alone; the host's real levels
+# are "high" and "none" ("none" disables thinking, every other accepted effort
+# aliases to "high"). Effort includes "none", so no separate toggle is
+# declared.
 # The gateway enforces no separate output cap; output is bounded only by the
 # served context window, hence output = context.
 # Neuralwatt serves a 131k context window, text and image input only.
@@ -8,7 +12,8 @@ name = "Qwen3.6 35B"
 field = "reasoning_content"
 
 [[reasoning_options]]
-type = "toggle"
+type = "effort"
+values = ["none", "high"]
 
 [cost]
 input = 0.29

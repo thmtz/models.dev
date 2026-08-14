@@ -1,17 +1,19 @@
 # Reasoning is controlled by reasoning_effort alone; "none" disables thinking.
 # The API accepts the full seven-level scale but aliases it down to three real
 # levels: xhigh->max, medium->high, low->high, minimal->none.
-name = "GLM 5.2 Flex"
-description = "Flagship GLM model for hybrid reasoning, coding, and agentic engineering"
-family = "glm"
-release_date = "2026-06-17"
-last_updated = "2026-06-17"
-attachment = false
-reasoning = true
-reasoning_options = [{ type = "effort", values = ["none", "high", "max"] }]
-temperature = true
-tool_call = true
-open_weights = true
+# Flex tier: async/queued processing at a 0.65 pricing multiplier (35% off) vs
+# glm-5.2. Requires stream = true (non-streaming requests fall through to the
+# standard tier).
+# Host deltas vs the lab model: no structured output (json_mode = false on the
+# live catalog), a slightly larger served context (1_048_560), and no separate
+# output cap (output = context).
+base_model = "zhipuai/glm-5.2"
+name = "GLM-5.2 (flex)"
+structured_output = false
+
+[[reasoning_options]]
+type = "effort"
+values = ["none", "high", "max"]
 
 [cost]
 input = 0.9425
@@ -21,7 +23,3 @@ cache_read = 0.09425
 [limit]
 context = 1_048_560
 output = 1_048_560
-
-[modalities]
-input = ["text"]
-output = ["text"]

@@ -1,13 +1,11 @@
-name = "GLM 5.2 Fast"
-description = "Efficient GLM model for fast reasoning, coding, and agent workflows"
-family = "glm"
-release_date = "2026-06-17"
-last_updated = "2026-06-17"
-attachment = false
+# Non-thinking tier of glm-5.2 (reasoning_effort = none injected server-side).
+# Host deltas vs the lab model: no structured output (json_mode = false on the
+# live catalog), a slightly larger served context (1_048_560), and no separate
+# output cap (output = context).
+base_model = "zhipuai/glm-5.2"
+name = "GLM-5.2 (fast)"
 reasoning = false
-temperature = true
-tool_call = true
-open_weights = true
+structured_output = false
 
 [cost]
 input = 1.45
@@ -17,7 +15,3 @@ cache_read = 0.145
 [limit]
 context = 1_048_560
 output = 1_048_560
-
-[modalities]
-input = ["text"]
-output = ["text"]

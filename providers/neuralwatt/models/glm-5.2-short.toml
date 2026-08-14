@@ -1,16 +1,13 @@
 # Reasoning is controlled by reasoning_effort alone; "none" disables thinking.
 # The API accepts the full seven-level scale but aliases it down to three real
 # levels: xhigh->max, medium->high, low->high, minimal->none.
-name = "GLM 5.2 Short"
-description = "Flagship GLM model for hybrid reasoning, coding, and agentic engineering"
-family = "glm"
-release_date = "2026-06-17"
-last_updated = "2026-06-17"
-attachment = false
-reasoning = true
-temperature = true
-tool_call = true
-open_weights = true
+# Short pool: 200K context with a 32K output cap and a bounded reasoning
+# budget for faster, lower-energy serving.
+# Host deltas vs the lab model: no structured output (json_mode = false on the
+# live catalog).
+base_model = "zhipuai/glm-5.2"
+name = "GLM-5.2 (short)"
+structured_output = false
 
 [[reasoning_options]]
 type = "effort"
@@ -24,7 +21,3 @@ cache_read = 0.145
 [limit]
 context = 199_984
 output = 32_000
-
-[modalities]
-input = ["text"]
-output = ["text"]
